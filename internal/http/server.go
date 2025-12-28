@@ -2,11 +2,15 @@ package http
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/Rusich90/gophermart.git/internal/http/middleware"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/Rusich90/gophermart.git/config"
@@ -32,6 +36,10 @@ func SetupServer(cfg *config.Config) (*gin.Engine, *pgxpool.Pool, error) {
 		return nil, nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
+	if err := runMigrations(cfg.DatabaseURI); err != nil {
+		return nil, nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
 	logger, err := zap.NewProduction()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create logger: %w", err)
@@ -50,4 +58,34 @@ func SetupServer(cfg *config.Config) (*gin.Engine, *pgxpool.Pool, error) {
 	r.POST("/api/user/login", authHandler.Login)
 
 	return r, db, nil
+}
+
+func runMigrations(databaseURL string) error {
+	db, err := sql.Open("postgres", databaseURL)
+	if err != nil {
+		return fmt.Errorf("failed to open database for migrations: %w", err)
+	}
+	defer db.Close()
+
+	if err := db.Ping(); err != nil {
+		return fmt.Errorf("failed to ping database for migrations: %w", err)
+	}
+
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		return fmt.Errorf("failed to create migration driver: %w", err)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://migrations",
+		"postgres", driver)
+	if err != nil {
+		return fmt.Errorf("failed to create migration instance: %w", err)
+	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	return nil
 }
