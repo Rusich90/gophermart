@@ -12,6 +12,7 @@ type Config struct {
 	DatabaseURI          string
 	AccrualSystemAddress string
 	AuthSecret           string
+	MigrationsPath       string
 }
 
 func InitConfig() *Config {
@@ -22,6 +23,7 @@ func InitConfig() *Config {
 	flag.StringVar(&config.RunAddress, "a", "localhost:8080", "Адрес и порт запуска сервиса")
 	flag.StringVar(&config.DatabaseURI, "d", "", "Адрес подключения к базе данных")
 	flag.StringVar(&config.AccrualSystemAddress, "r", "", "Адрес системы расчёта начислений")
+	flag.StringVar(&config.MigrationsPath, "m", "file://migrations", "Path to migrations")
 
 	flag.Parse()
 
@@ -39,6 +41,10 @@ func InitConfig() *Config {
 
 	if envAuthSecret, exists := os.LookupEnv("AUTH_SECRET"); exists {
 		config.AuthSecret = envAuthSecret
+	}
+
+	if envMigrationsPath, exists := os.LookupEnv("MIGRATIONS_PATH"); exists {
+		config.MigrationsPath = envMigrationsPath
 	}
 
 	return config

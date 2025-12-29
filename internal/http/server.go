@@ -36,7 +36,7 @@ func SetupServer(cfg *config.Config) (*gin.Engine, *pgxpool.Pool, error) {
 		return nil, nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	if err := runMigrations(cfg.DatabaseURI); err != nil {
+	if err := runMigrations(cfg.DatabaseURI, cfg); err != nil {
 		return nil, nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
@@ -60,7 +60,7 @@ func SetupServer(cfg *config.Config) (*gin.Engine, *pgxpool.Pool, error) {
 	return r, db, nil
 }
 
-func runMigrations(databaseURL string) error {
+func runMigrations(databaseURL string, cfg *config.Config) error {
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
 		return fmt.Errorf("failed to open database for migrations: %w", err)
@@ -77,7 +77,7 @@ func runMigrations(databaseURL string) error {
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
-		"file://migrations",
+		cfg.MigrationsPath,
 		"postgres", driver)
 	if err != nil {
 		return fmt.Errorf("failed to create migration instance: %w", err)
