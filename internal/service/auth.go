@@ -5,18 +5,23 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Rusich90/gophermart.git/internal/domain"
+	domainuser "github.com/Rusich90/gophermart.git/internal/domain/user"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
+type Claims struct {
+	UserID uuid.UUID `json:"user_id"`
+	jwt.RegisteredClaims
+}
+
 type AuthService struct {
-	userRepo domain.UserRepo
+	userRepo domainuser.UserRepo
 	secret   []byte
 }
 
-func NewAuthService(userRepo domain.UserRepo, secret []byte) *AuthService {
+func NewAuthService(userRepo domainuser.UserRepo, secret []byte) *AuthService {
 	return &AuthService{userRepo: userRepo, secret: secret}
 }
 
@@ -26,7 +31,7 @@ func (s *AuthService) Register(ctx context.Context, login, password string) (uui
 		return uuid.Nil, fmt.Errorf("failed to check if login exists: %w", err)
 	}
 	if exists {
-		return uuid.Nil, domain.ErrLoginAlreadyExists
+		return uuid.Nil, domainuser.ErrLoginAlreadyExists
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -36,7 +41,7 @@ func (s *AuthService) Register(ctx context.Context, login, password string) (uui
 
 	userID := uuid.New()
 
-	user := domain.User{
+	user := domainuser.User{
 		ID:        userID,
 		Login:     login,
 		Password:  string(hashedPassword),
@@ -54,12 +59,12 @@ func (s *AuthService) Register(ctx context.Context, login, password string) (uui
 func (s *AuthService) Login(ctx context.Context, login, password string) (string, error) {
 	user, err := s.userRepo.GetByLogin(ctx, login)
 	if err != nil {
-		return "", domain.ErrInvalidCredentials
+		return "", domainuser.ErrInvalidCredentials
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
-		return "", domain.ErrInvalidCredentials
+		return "", domainuser.ErrInvalidCredentials
 	}
 
 	token, err := s.GenerateToken(user.ID)
@@ -71,10 +76,12 @@ func (s *AuthService) Login(ctx context.Context, login, password string) (string
 }
 
 func (s *AuthService) GenerateToken(userID uuid.UUID) (string, error) {
-	claims := jwt.MapClaims{
-		"user_id": userID.String(),
-		"exp":     time.Now().Add(time.Hour * 24).Unix(),
-		"iat":     time.Now().Unix(),
+	claims := Claims{
+		UserID: userID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claims)

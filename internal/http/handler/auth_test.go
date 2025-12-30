@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/Rusich90/gophermart.git/internal/domain"
+	domainuser "github.com/Rusich90/gophermart.git/internal/domain/user"
 	"github.com/Rusich90/gophermart.git/internal/http/dto"
 	"github.com/Rusich90/gophermart.git/internal/http/handler"
 	"github.com/Rusich90/gophermart.git/internal/repository"
@@ -19,7 +19,7 @@ import (
 type AuthTestSuite struct {
 	suite.Suite
 	db        *pgxpool.Pool
-	userRepo  domain.UserRepo
+	userRepo  domainuser.UserRepo
 	httpSetup *testutils.HTTPTestSetup
 	jwtSecret []byte
 	logger    *zap.Logger

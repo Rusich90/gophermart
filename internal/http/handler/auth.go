@@ -3,7 +3,7 @@ package handler
 import (
 	"net/http"
 
-	"github.com/Rusich90/gophermart.git/internal/domain"
+	domainuser "github.com/Rusich90/gophermart.git/internal/domain/user"
 	"github.com/Rusich90/gophermart.git/internal/http/dto"
 	"github.com/Rusich90/gophermart.git/internal/http/validator"
 	"github.com/Rusich90/gophermart.git/internal/service"
@@ -35,7 +35,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	userID, err := h.authService.Register(c.Request.Context(), req.Login, req.Password)
 	if err != nil {
-		if domain.IsErrLoginAlreadyExists(err) {
+		if domainuser.IsErrLoginAlreadyExists(err) {
 			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
@@ -71,7 +71,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	token, err := h.authService.Login(c.Request.Context(), req.Login, req.Password)
 	if err != nil {
-		if domain.IsErrInvalidCredentials(err) {
+		if domainuser.IsErrInvalidCredentials(err) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			return
 		}

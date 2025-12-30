@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Rusich90/gophermart.git/internal/http/middleware"
+	"github.com/Rusich90/gophermart.git/internal/repository"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/database/postgres"
@@ -15,7 +16,6 @@ import (
 
 	"github.com/Rusich90/gophermart.git/config"
 	"github.com/Rusich90/gophermart.git/internal/http/handler"
-	"github.com/Rusich90/gophermart.git/internal/repository"
 	"github.com/Rusich90/gophermart.git/internal/service"
 	"go.uber.org/zap"
 )
@@ -47,15 +47,29 @@ func SetupServer(cfg *config.Config) (*gin.Engine, *pgxpool.Pool, error) {
 	defer logger.Sync()
 
 	userRepo := repository.NewUserRepo(db)
+	orderRepo := repository.NewOrderRepo(db)
+
 	authService := service.NewAuthService(userRepo, []byte(cfg.AuthSecret))
+	orderService := service.NewOrderService(orderRepo)
+
 	authHandler := handler.NewAuthHandler(authService, logger)
+	orderHandler := handler.NewOrderHandler(orderService, logger)
 
 	r := gin.New()
 	r.Use(middleware.LoggerMiddleware(logger))
 	r.Use(middleware.GzipMiddleware())
 
-	r.POST("/api/user/register", authHandler.Register)
-	r.POST("/api/user/login", authHandler.Login)
+	public := r.Group("/api/user")
+	{
+		public.POST("/register", authHandler.Register)
+		public.POST("/login", authHandler.Login)
+	}
+
+	protected := r.Group("/api/user")
+	protected.Use(middleware.AuthMiddleware([]byte(cfg.AuthSecret), logger))
+	{
+		protected.GET("/orders", orderHandler.GetAllByUserID)
+	}
 
 	return r, db, nil
 }
