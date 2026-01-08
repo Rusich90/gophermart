@@ -2,7 +2,10 @@ package repository
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
+	"time"
 
 	domainorder "github.com/Rusich90/gophermart.git/internal/domain/order"
 	"github.com/google/uuid"
@@ -53,4 +56,63 @@ func (r *OrderRepo) GetAllByUserID(ctx context.Context, userID *uuid.UUID) ([]do
 	}
 
 	return orders, nil
+}
+
+func (r *OrderRepo) GetByNumber(ctx context.Context, number string) (domainorder.Order, error) {
+	var order domainorder.Order
+
+	query := `
+		SELECT number, user_id, status, accrual, created_at
+		FROM orders 
+		WHERE number = $1
+	`
+
+	row := r.db.QueryRow(ctx, query, number)
+
+	err := row.Scan(
+		&order.Number,
+		&order.UserID,
+		&order.Status,
+		&order.Accrual,
+		&order.CreatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return order, domainorder.ErrOrderNotFound
+		}
+		return order, fmt.Errorf("failed to scan order: %w", err)
+	}
+
+	return order, nil
+}
+
+func (r *OrderRepo) Create(ctx context.Context, number string, userID *uuid.UUID) error {
+	query := `
+		INSERT INTO orders (number, user_id, status, accrual, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+	`
+
+	_, err := r.db.Exec(ctx, query, number, userID, domainorder.NEW, 0, time.Now())
+
+	if err != nil {
+		return fmt.Errorf("failed to exec insert order: %w", err)
+	}
+
+	return nil
+}
+
+func (r *OrderRepo) GetSumByUserID(ctx context.Context, userID *uuid.UUID) (float64, error) {
+	query := `
+		SELECT COALESCE(SUM(accrual), 0)
+		FROM orders 
+		WHERE user_id = $1 AND status = $2
+	`
+
+	var totalSum float64
+	err := r.db.QueryRow(ctx, query, userID, domainorder.PROCESSED).Scan(&totalSum)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get sum of processed orders by user id: %w", err)
+	}
+
+	return totalSum, nil
 }

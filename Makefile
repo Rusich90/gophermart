@@ -30,7 +30,7 @@ migrate-up: check-database-dsn
 
 migrate-down: check-database-dsn
 	@echo "Rolling back last migration..."
-	migrate -path $(MIGRATIONS_DIR) -database "$(DATABASE_URI)" down
+	migrate -path $(MIGRATIONS_DIR) -database "$(DATABASE_URI)" down 1
 
 migrate-version: check-database-dsn
 	@echo "Current migration version:"

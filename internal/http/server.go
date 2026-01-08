@@ -48,12 +48,17 @@ func SetupServer(cfg *config.Config) (*gin.Engine, *pgxpool.Pool, error) {
 
 	userRepo := repository.NewUserRepo(db)
 	orderRepo := repository.NewOrderRepo(db)
+	withdrawalRepo := repository.NewWithdrawalRepo(db)
 
 	authService := service.NewAuthService(userRepo, []byte(cfg.AuthSecret))
 	orderService := service.NewOrderService(orderRepo)
+	withdrawalService := service.NewWithdrawalService(withdrawalRepo)
+	balanceService := service.NewBalanceService(orderRepo, withdrawalRepo)
 
 	authHandler := handler.NewAuthHandler(authService, logger)
 	orderHandler := handler.NewOrderHandler(orderService, logger)
+	withdrawalHandler := handler.NewWithdrawalHandler(withdrawalService, logger)
+	balanceHandler := handler.NewBalanceHandler(balanceService, logger)
 
 	r := gin.New()
 	r.Use(middleware.LoggerMiddleware(logger))
@@ -69,6 +74,11 @@ func SetupServer(cfg *config.Config) (*gin.Engine, *pgxpool.Pool, error) {
 	protected.Use(middleware.AuthMiddleware([]byte(cfg.AuthSecret), logger))
 	{
 		protected.GET("/orders", orderHandler.GetAllByUserID)
+		protected.POST("/orders", orderHandler.AddOrder)
+
+		protected.GET("/balance", balanceHandler.GetByUserID)
+
+		protected.GET("/withdrawals", withdrawalHandler.GetAllByUserID)
 	}
 
 	return r, db, nil
