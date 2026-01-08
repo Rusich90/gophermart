@@ -8,6 +8,8 @@ import (
 	domainorder "github.com/Rusich90/gophermart.git/internal/domain/order"
 	domainwithdrawal "github.com/Rusich90/gophermart.git/internal/domain/withdrawal"
 	"github.com/Rusich90/gophermart.git/internal/dto"
+	"github.com/Rusich90/gophermart.git/internal/errs"
+	"github.com/Rusich90/gophermart.git/internal/utils"
 	"github.com/google/uuid"
 )
 
@@ -37,4 +39,29 @@ func (s *BalanceService) GetByUserID(ctx context.Context, userID *uuid.UUID) (*d
 	}
 
 	return &balanceDTO, nil
+}
+
+func (s *BalanceService) Withdraw(ctx context.Context, withdrawal *domainwithdrawal.Withdrawal) error {
+	if !utils.IsValidLuhn(withdrawal.OrderNum) {
+		return domainorder.ErrInvalidOrderNumber
+	}
+
+	balance, err := s.GetByUserID(ctx, &withdrawal.UserID)
+	if err != nil {
+		return fmt.Errorf("get balance error: %w", err)
+	}
+
+	if balance.CurrentAmount < withdrawal.Sum {
+		return errs.ErrInsufficientFunds
+	}
+
+	err = s.withdrawalRepo.Create(ctx, withdrawal)
+	if err != nil {
+		if !domainwithdrawal.IsErrOrderNumConflict(err) {
+			return nil
+		}
+		return fmt.Errorf("withdrawalRepo.Create: %w", err)
+	}
+
+	return nil
 }

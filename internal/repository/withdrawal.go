@@ -2,10 +2,13 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	domainwithdrawal "github.com/Rusich90/gophermart.git/internal/domain/withdrawal"
 	"github.com/google/uuid"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -54,20 +57,29 @@ func (r *WithdrawalRepo) GetAllByUserID(ctx context.Context, userID *uuid.UUID) 
 	return withdrawals, nil
 }
 
-func (r *WithdrawalRepo) Cre(ctx context.Context, userID *uuid.UUID) (float64, error) {
+func (r *WithdrawalRepo) Create(ctx context.Context, withdrawal *domainwithdrawal.Withdrawal) error {
 	query := `
-		SELECT COALESCE(SUM(sum), 0)
-		FROM withdrawals 
-		WHERE user_id = $1
+		INSERT INTO withdrawals (order_num, user_id, sum, created_at)
+		VALUES ($1, $2, $3, $4)
 	`
 
-	var totalSum float64
-	err := r.db.QueryRow(ctx, query, userID).Scan(&totalSum)
+	_, err := r.db.Exec(
+		ctx,
+		query,
+		withdrawal.OrderNum,
+		withdrawal.UserID,
+		withdrawal.Sum,
+		withdrawal.CreatedAt,
+	)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get sum of withdrawals by user id: %w", err)
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+			return domainwithdrawal.ErrOrderNumConflict
+		}
+		return fmt.Errorf("failed to create withdrawal: %w", err)
 	}
 
-	return totalSum, nil
+	return nil
 }
 
 func (r *WithdrawalRepo) GetSumByUserID(ctx context.Context, userID *uuid.UUID) (float64, error) {

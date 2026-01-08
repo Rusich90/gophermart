@@ -9,4 +9,5 @@ import (
 type WithdrawalRepo interface {
 	GetAllByUserID(ctx context.Context, userID *uuid.UUID) ([]Withdrawal, error)
 	GetSumByUserID(ctx context.Context, userID *uuid.UUID) (float64, error)
+	Create(ctx context.Context, withdrawal *Withdrawal) error
 }

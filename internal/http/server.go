@@ -77,6 +77,7 @@ func SetupServer(cfg *config.Config) (*gin.Engine, *pgxpool.Pool, error) {
 		protected.POST("/orders", orderHandler.AddOrder)
 
 		protected.GET("/balance", balanceHandler.GetByUserID)
+		protected.POST("/balance/withdraw", balanceHandler.Withdraw)
 
 		protected.GET("/withdrawals", withdrawalHandler.GetAllByUserID)
 	}
