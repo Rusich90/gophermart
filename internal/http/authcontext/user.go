@@ -2,6 +2,7 @@ package authcontext
 
 import (
 	"errors"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -27,4 +28,15 @@ func GetUserID(c *gin.Context) (*uuid.UUID, error) {
 	}
 
 	return id, nil
+}
+
+func RequireUserID(c *gin.Context) *uuid.UUID {
+	userID, err := GetUserID(c)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+			"error": "unauthorized",
+		})
+		return nil
+	}
+	return userID
 }

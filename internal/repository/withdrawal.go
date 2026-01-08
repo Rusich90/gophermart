@@ -54,6 +54,22 @@ func (r *WithdrawalRepo) GetAllByUserID(ctx context.Context, userID *uuid.UUID) 
 	return withdrawals, nil
 }
 
+func (r *WithdrawalRepo) Cre(ctx context.Context, userID *uuid.UUID) (float64, error) {
+	query := `
+		SELECT COALESCE(SUM(sum), 0)
+		FROM withdrawals 
+		WHERE user_id = $1
+	`
+
+	var totalSum float64
+	err := r.db.QueryRow(ctx, query, userID).Scan(&totalSum)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get sum of withdrawals by user id: %w", err)
+	}
+
+	return totalSum, nil
+}
+
 func (r *WithdrawalRepo) GetSumByUserID(ctx context.Context, userID *uuid.UUID) (float64, error) {
 	query := `
 		SELECT COALESCE(SUM(sum), 0)

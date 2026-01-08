@@ -11,6 +11,11 @@ import (
 	"go.uber.org/zap"
 )
 
+type Claims struct {
+	UserID uuid.UUID `json:"user_id"`
+	jwt.RegisteredClaims
+}
+
 func AuthMiddleware(secret []byte, logger *zap.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenCookie, err := c.Cookie("token")
@@ -32,11 +37,6 @@ func AuthMiddleware(secret []byte, logger *zap.Logger) gin.HandlerFunc {
 
 		c.Next()
 	}
-}
-
-type Claims struct {
-	UserID uuid.UUID `json:"user_id"`
-	jwt.RegisteredClaims
 }
 
 func validateToken(tokenString string, secret []byte) (*Claims, error) {

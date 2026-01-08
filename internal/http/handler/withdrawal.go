@@ -20,15 +20,8 @@ func NewWithdrawalHandler(withdrawalService *service.WithdrawalService, logger *
 }
 
 func (h *WithdrawalHandler) GetAllByUserID(c *gin.Context) {
-	userID, err := authcontext.GetUserID(c)
-	if err != nil {
-		h.logger.Info("Failed to get user ID: ", zap.Error(err))
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-
+	userID := authcontext.RequireUserID(c)
 	if userID == nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 

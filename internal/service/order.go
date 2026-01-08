@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	domainorder "github.com/Rusich90/gophermart.git/internal/domain/order"
+	"github.com/Rusich90/gophermart.git/internal/utils"
 	"github.com/google/uuid"
 )
 
@@ -26,6 +27,10 @@ func (s *OrderService) GetAllByUserID(ctx context.Context, userID *uuid.UUID) ([
 }
 
 func (s *OrderService) AddOrder(ctx context.Context, userID *uuid.UUID, number string) error {
+	if !utils.IsValidLuhn(number) {
+		return domainorder.ErrInvalidOrderNumber
+	}
+	
 	order, err := s.orderRepo.GetByNumber(ctx, number)
 	if err != nil {
 		if !domainorder.IsErrOrderNotFound(err) {

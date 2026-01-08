@@ -23,15 +23,8 @@ func NewOrderHandler(orderService *service.OrderService, logger *zap.Logger) *Or
 }
 
 func (h *OrderHandler) GetAllByUserID(c *gin.Context) {
-	userID, err := authcontext.GetUserID(c)
-	if err != nil {
-		h.logger.Info("Failed to get user ID: ", zap.Error(err))
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-
+	userID := authcontext.RequireUserID(c)
 	if userID == nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
@@ -66,31 +59,25 @@ func (h *OrderHandler) AddOrder(c *gin.Context) {
 		return
 	}
 
-	userID, err := authcontext.GetUserID(c)
-	if err != nil {
-		h.logger.Info("Failed to get user ID: ", zap.Error(err))
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-		return
-	}
-
+	userID := authcontext.RequireUserID(c)
 	if userID == nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
 	}
 
 	err = h.orderService.AddOrder(c.Request.Context(), userID, orderNumber)
 
 	if err != nil {
-		if domainorder.IsErrOrderOwnedByOtherUser(err) {
+		switch {
+		case domainorder.IsErrOrderOwnedByOtherUser(err):
 			c.AbortWithStatusJSON(http.StatusConflict, gin.H{"error": "not owner"})
-			return
-		}
-		if domainorder.IsErrOrderAlreadyUploaded(err) {
+		case domainorder.IsErrOrderAlreadyUploaded(err):
 			c.Status(http.StatusOK)
-			return
+		case domainorder.IsErrInvalidOrderNumber(err):
+			c.AbortWithStatusJSON(http.StatusUnprocessableEntity, gin.H{"error": "number is invalid"})
+		default:
+			h.logger.Error("Failed addOrder", zap.Error(err))
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		}
-		h.logger.Error("Failed addOrder", zap.Error(err))
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
