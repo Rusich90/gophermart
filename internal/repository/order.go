@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	domainorder "github.com/Rusich90/gophermart.git/internal/domain/order"
 	"github.com/google/uuid"
@@ -86,16 +85,39 @@ func (r *OrderRepo) GetByNumber(ctx context.Context, number string) (domainorder
 	return order, nil
 }
 
-func (r *OrderRepo) Create(ctx context.Context, number string, userID *uuid.UUID) error {
+func (r *OrderRepo) Create(ctx context.Context, order *domainorder.Order) error {
 	query := `
 		INSERT INTO orders (number, user_id, status, accrual, created_at)
 		VALUES ($1, $2, $3, $4, $5)
 	`
 
-	_, err := r.db.Exec(ctx, query, number, userID, domainorder.NEW, 0, time.Now())
+	_, err := r.db.Exec(
+		ctx,
+		query,
+		order.Number,
+		order.UserID,
+		order.Status,
+		order.Accrual,
+		order.CreatedAt,
+	)
 
 	if err != nil {
 		return fmt.Errorf("failed to exec insert order: %w", err)
+	}
+
+	return nil
+}
+
+func (r *OrderRepo) Update(ctx context.Context, order *domainorder.Order) error {
+	query := `
+		UPDATE orders
+		SET status = $1, accrual = $2
+		WHERE number = $3
+	`
+
+	_, err := r.db.Exec(ctx, query, order.Status, order.Accrual, order.Number)
+	if err != nil {
+		return fmt.Errorf("failed to update order: %w", err)
 	}
 
 	return nil

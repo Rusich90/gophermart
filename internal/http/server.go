@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Rusich90/gophermart.git/internal/client/accrual"
 	"github.com/Rusich90/gophermart.git/internal/http/middleware"
 	"github.com/Rusich90/gophermart.git/internal/repository"
 	"github.com/gin-gonic/gin"
@@ -46,12 +47,19 @@ func SetupServer(cfg *config.Config) (*gin.Engine, *pgxpool.Pool, error) {
 	}
 	defer logger.Sync()
 
+	accrualClient := accrual.NewAccrualClient(
+		cfg.AccrualSystemAddress,
+		10,
+		5,
+		logger,
+	)
+
 	userRepo := repository.NewUserRepo(db)
 	orderRepo := repository.NewOrderRepo(db)
 	withdrawalRepo := repository.NewWithdrawalRepo(db)
 
 	authService := service.NewAuthService(userRepo, []byte(cfg.AuthSecret))
-	orderService := service.NewOrderService(orderRepo)
+	orderService := service.NewOrderService(orderRepo, accrualClient, logger)
 	withdrawalService := service.NewWithdrawalService(withdrawalRepo)
 	balanceService := service.NewBalanceService(orderRepo, withdrawalRepo)
 
