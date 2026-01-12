@@ -33,9 +33,9 @@ func (s *BalanceService) GetByUserID(ctx context.Context, userID *uuid.UUID) (*d
 		return nil, fmt.Errorf("orderRepo.GetAllByUserID: %w", err)
 	}
 	balanceDTO := dto.BalanceDTO{
-		TotalAccrual:    totalAccrual,
-		TotalWithdrawal: totalWithdrawal,
-		CurrentAmount:   math.Round((totalAccrual-totalWithdrawal)*10) / 10,
+		TotalAccrual:    math.Round(totalAccrual*100) / 100,
+		TotalWithdrawal: math.Round(totalWithdrawal*100) / 100,
+		CurrentAmount:   math.Round((totalAccrual-totalWithdrawal)*100) / 100,
 	}
 
 	return &balanceDTO, nil
