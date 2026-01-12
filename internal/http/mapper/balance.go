@@ -7,7 +7,7 @@ import (
 
 func BalanceToDTO(balance servicedto.BalanceDTO) dto.BalanceResponse {
 	return dto.BalanceResponse{
-		Current:  balance.CurrentAmount,
-		Withdraw: balance.TotalWithdrawal,
+		Current:   balance.CurrentAmount,
+		Withdrawn: balance.TotalWithdrawal,
 	}
 }
