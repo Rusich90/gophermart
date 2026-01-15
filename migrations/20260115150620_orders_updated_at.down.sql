@@ -1,0 +1,2 @@
+ALTER TABLE orders
+DROP COLUMN updated_at;

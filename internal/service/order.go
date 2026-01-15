@@ -81,27 +81,39 @@ func (s *OrderService) processAccrualAsync(orderNumber string) {
 			if err != nil {
 				switch {
 				case accrualclient.IsErrTooManyRequests(err):
+					retries++
+					if retries >= maxRetries {
+						s.logger.Error("Max retries exceeded due to too many requests",
+							zap.String("order_number", orderNumber))
+						return
+					}
 					time.Sleep(time.Duration(20) * time.Second)
-					retries++
 					continue
+
 				case accrualclient.IsErrInternalServer(err):
-					time.Sleep(time.Duration(5) * time.Second)
 					retries++
+					if retries >= maxRetries {
+						s.logger.Error("Max retries exceeded due to internal server error",
+							zap.String("order_number", orderNumber),
+							zap.Error(err))
+						return
+					}
+					time.Sleep(time.Duration(5) * time.Second)
 					continue
+
 				case accrualclient.IsErrOrderNotRegistered(err):
 					s.logger.Warn("Order is not registered yet", zap.String("order_number", orderNumber))
 					s.markOrderAsInvalid(ctx, orderNumber)
 					return
+
 				default:
 					s.logger.Error("Fatal error fetching accrual data",
 						zap.String("order_number", orderNumber),
-						zap.Error(err),
-					)
+						zap.Error(err))
 					return
 				}
 			}
 
-			// Сбросим счётчик при успешном ответе
 			retries = 0
 
 			switch result.Status {

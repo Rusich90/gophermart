@@ -15,10 +15,8 @@ import (
 type AccrualStatus string
 
 const (
-	StatusRegistered AccrualStatus = "REGISTERED"
-	StatusInvalid    AccrualStatus = "INVALID"
-	StatusProcessing AccrualStatus = "PROCESSING"
-	StatusProcessed  AccrualStatus = "PROCESSED"
+	StatusInvalid   AccrualStatus = "INVALID"
+	StatusProcessed AccrualStatus = "PROCESSED"
 )
 
 type AccrualResponse struct {
@@ -50,8 +48,6 @@ func (c *AccrualClient) GetAccrualInfo(ctx context.Context, orderNumber string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to build URL: %w", err)
 	}
-
-	c.logger.Debug("Sending request to accrual system", zap.String("url", requestURL), zap.String("order", orderNumber))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
@@ -86,13 +82,4 @@ func (c *AccrualClient) GetAccrualInfo(ctx context.Context, orderNumber string) 
 	default:
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-}
-
-type RetryableError struct {
-	DelaySeconds int
-	Cause        error
-}
-
-func (e RetryableError) Error() string {
-	return e.Cause.Error()
 }

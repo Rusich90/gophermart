@@ -111,7 +111,7 @@ func (r *OrderRepo) Create(ctx context.Context, order *domainorder.Order) error 
 func (r *OrderRepo) Update(ctx context.Context, order *domainorder.Order) error {
 	query := `
 		UPDATE orders
-		SET status = $1, accrual = $2
+		SET status = $1, accrual = $2, updated_at = NOW()
 		WHERE number = $3
 	`
 
