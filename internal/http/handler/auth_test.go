@@ -23,18 +23,16 @@ type AuthTestSuite struct {
 	httpSetup *testutils.HTTPTestSetup
 	jwtSecret []byte
 	logger    *zap.Logger
-	dbSetup   *testutils.DBSetup
 }
 
 func (s *AuthTestSuite) SetupSuite() {
-	dbSetup, err := testutils.SetupTestDB()
+	globalSuite, err := testutils.GetGlobalTestSuite()
 	s.Require().NoError(err)
-	s.dbSetup = dbSetup
-	s.db = dbSetup.DB
-
+	
+	s.db = globalSuite.DB
 	s.userRepo = repository.NewUserRepo(s.db)
 	s.jwtSecret = []byte("test_secret")
-	s.logger = zap.NewNop()
+	s.logger = globalSuite.Logger
 
 	s.startServer()
 }
@@ -52,9 +50,6 @@ func (s *AuthTestSuite) startServer() {
 func (s *AuthTestSuite) TearDownSuite() {
 	if s.httpSetup != nil {
 		s.httpSetup.Close()
-	}
-	if s.dbSetup != nil {
-		testutils.CloseDBSetup(s.dbSetup)
 	}
 }
 

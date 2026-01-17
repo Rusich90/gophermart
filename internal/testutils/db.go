@@ -96,6 +96,11 @@ func SetupTestDB() (*DBSetup, error) {
 	}, nil
 }
 
+// GetGlobalDB возвращает глобальный экземпляр базы данных
+func GetGlobalDB() (*DBSetup, error) {
+	return SetupTestDB()
+}
+
 func TruncateTables(db *pgxpool.Pool) error {
 	_, err := db.Exec(context.Background(), "TRUNCATE TABLE users RESTART IDENTITY CASCADE;")
 	if err != nil {

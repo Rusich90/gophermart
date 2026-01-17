@@ -54,3 +54,8 @@ func (h *HTTPTestSetup) Close() {
 		h.Server.Close()
 	}
 }
+
+func ParseJSONResponse(resp *http.Response, v interface{}) error {
+	defer resp.Body.Close()
+	return json.NewDecoder(resp.Body).Decode(v)
+}
