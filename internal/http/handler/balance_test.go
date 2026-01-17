@@ -184,8 +184,6 @@ func (s *BalanceTestSuite) createTestWithdrawal(userID *uuid.UUID, orderNum stri
 	s.Require().NoError(err)
 }
 
-// =================== Tests ===================
-
 func (s *BalanceTestSuite) TestGetByUserID_Successful() {
 	userID := s.users["user1"]
 	
@@ -323,8 +321,8 @@ func (s *BalanceTestSuite) TestWithdraw_InvalidOrderNumber() {
 	
 	// Проверяем, что запись НЕ создана в БД
 	var count int
-	err = s.db.QueryRow(context.Background(), 
-		"SELECT COUNT(*) FROM withdrawals WHERE user_id = $1 AND order_num = $2", 
+	err = s.db.QueryRow(context.Background(),
+		"SELECT COUNT(*) FROM withdrawals WHERE user_id = $1 AND order_num = $2",
 		userID, "12345678901").Scan(&count)
 	s.Require().NoError(err)
 	s.Equal(0, count)
@@ -432,8 +430,6 @@ func (s *BalanceTestSuite) TestWithdraw_Unauthorized() {
 	
 	s.Equal(http.StatusUnauthorized, resp.StatusCode)
 }
-
-// =================== Entry Point ===================
 
 func TestBalanceTestSuite(t *testing.T) {
 	suite.Run(t, new(BalanceTestSuite))

@@ -8,6 +8,5 @@ import (
 
 // TestMain является точкой входа для всех тестов в этом пакете
 func TestMain(m *testing.M) {
-	// Инициализируем глобальное тестовое окружение
 	testutils.SetupGlobalTestSuite(m)
 }

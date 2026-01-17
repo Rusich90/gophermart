@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"testing"
+	"sync"
 	"time"
 
 	accrualclient "github.com/Rusich90/gophermart.git/internal/client/accrual"
@@ -26,16 +27,31 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Мок для accrual клиента
-type mockAccrualClient struct{}
+// Мock для accrual клиента с возможностью контроля поведения и подсчета вызовов
+type mockAccrualClient struct {
+	mu        sync.Mutex
+	response  *accrualclient.AccrualResponse
+	err       error
+	callCount int
+}
 
 func (m *mockAccrualClient) GetAccrualInfo(ctx context.Context, orderNumber string) (*accrualclient.AccrualResponse, error) {
-	// В тестах мы не проверяем асинхронную логику, поэтому просто возвращаем фиктивный результат
-	return &accrualclient.AccrualResponse{
-		Order:   orderNumber,
-		Status:  accrualclient.StatusProcessed,
-		Accrual: nil,
-	}, nil
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	
+	m.callCount++
+	
+	if m.response != nil {
+		return m.response, m.err
+	}
+	
+	return nil, m.err
+}
+
+func (m *mockAccrualClient) GetCallCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.callCount
 }
 
 type OrderTestSuite struct {
@@ -183,8 +199,6 @@ func (s *OrderTestSuite) createTestOrder(userID *uuid.UUID, number string, statu
 	s.Require().NoError(err)
 }
 
-// =================== Tests ===================
-
 func (s *OrderTestSuite) TestGetAllByUserID_Successful() {
 	userID := s.users["user1"]
 
@@ -328,7 +342,191 @@ func (s *OrderTestSuite) TestAddOrder_Unauthorized() {
 	s.Equal(http.StatusUnauthorized, resp.StatusCode)
 }
 
-// =================== Entry Point ===================
+func (s *OrderTestSuite) TestAddOrder_CallsProcessAccrualAsync() {
+	// Создаем мок клиента с подсчетом вызовов
+	mockClient := &mockAccrualClient{
+		response: &accrualclient.AccrualResponse{
+			Order:   "12345678903",
+			Status:  accrualclient.StatusProcessed,
+			Accrual: nil,
+		},
+	}
+	
+	// Переопределяем orderService с новым моком
+	s.orderService = service.NewOrderService(s.orderRepo, mockClient, s.logger, 10*time.Millisecond)
+	s.orderHandler = handler.NewOrderHandler(s.orderService, s.logger)
+	
+	// Перезапускаем сервер с новым хендлером
+	s.startServer()
+	
+	userID := s.users["user1"]
+	orderNumber := "12345678903"
+	
+	// Выполняем запрос
+	resp, err := s.performRequest("POST", "/orders", orderNumber, userID)
+	s.Require().NoError(err)
+	defer resp.Body.Close()
+	
+	s.Equal(http.StatusAccepted, resp.StatusCode)
+	
+	// Ждем немного, чтобы дать время горутине выполниться
+	time.Sleep(100 * time.Millisecond)
+	
+	// Проверяем, что метод GetAccrualInfo был вызван хотя бы один раз
+	s.True(mockClient.GetCallCount() > 0, "Expected GetAccrualInfo to be called at least once")
+}
+
+// Тест для проверки обработки заказа со статусом INVALID
+func (s *OrderTestSuite) TestAddOrder_ProcessInvalidOrder() {
+	// Создаем мок клиента, который будет возвращать статус INVALID
+	mockClient := &mockAccrualClient{
+		response: &accrualclient.AccrualResponse{
+			Order:  "12345678903",
+			Status: accrualclient.StatusInvalid,
+		},
+	}
+	
+	// Переопределяем orderService с новым моком и маленьким интервалом
+	s.orderService = service.NewOrderService(s.orderRepo, mockClient, s.logger, 10*time.Millisecond)
+	s.orderHandler = handler.NewOrderHandler(s.orderService, s.logger)
+	
+	// Перезапускаем сервер с новым хендлером
+	s.startServer()
+	
+	userID := s.users["user1"]
+	orderNumber := "12345678903"
+	
+	// Выполняем запрос
+	resp, err := s.performRequest("POST", "/orders", orderNumber, userID)
+	s.Require().NoError(err)
+	defer resp.Body.Close()
+	
+	s.Equal(http.StatusAccepted, resp.StatusCode)
+	
+	// Ждем немного, чтобы дать время горутине выполниться
+	time.Sleep(100 * time.Millisecond)
+	
+	// Проверяем, что метод GetAccrualInfo был вызван
+	s.True(mockClient.GetCallCount() > 0, "Expected GetAccrualInfo to be called")
+	
+	// Проверяем, что статус заказа в БД стал INVALID
+	order, err := s.orderRepo.GetByNumber(context.Background(), orderNumber)
+	s.Require().NoError(err)
+	s.Equal(domainorder.INVALID, order.Status)
+}
+
+// Тест для проверки обработки заказа со статусом PROCESSED и ненулевым accrual
+func (s *OrderTestSuite) TestAddOrder_ProcessValidOrderWithAccrual() {
+	// Создаем мок клиента, который будет возвращать статус PROCESSED с ненулевым accrual
+	accrualValue := 100.50
+	mockClient := &mockAccrualClient{
+		response: &accrualclient.AccrualResponse{
+			Order:   "12345678903",
+			Status:  accrualclient.StatusProcessed,
+			Accrual: &accrualValue,
+		},
+	}
+	
+	// Переопределяем orderService с новым моком и маленьким интервалом
+	s.orderService = service.NewOrderService(s.orderRepo, mockClient, s.logger, 10*time.Millisecond)
+	s.orderHandler = handler.NewOrderHandler(s.orderService, s.logger)
+	
+	// Перезапускаем сервер с новым хендлером
+	s.startServer()
+	
+	userID := s.users["user1"]
+	orderNumber := "12345678903"
+	
+	// Выполняем запрос
+	resp, err := s.performRequest("POST", "/orders", orderNumber, userID)
+	s.Require().NoError(err)
+	defer resp.Body.Close()
+	
+	s.Equal(http.StatusAccepted, resp.StatusCode)
+	
+	// Ждем немного, чтобы дать время горутине выполниться
+	time.Sleep(100 * time.Millisecond)
+	
+	// Проверяем, что метод GetAccrualInfo был вызван
+	s.True(mockClient.GetCallCount() > 0, "Expected GetAccrualInfo to be called")
+	
+	// Проверяем, что статус заказа в БД стал PROCESSED и accrual обновился
+	order, err := s.orderRepo.GetByNumber(context.Background(), orderNumber)
+	s.Require().NoError(err)
+	s.Equal(domainorder.PROCESSED, order.Status)
+	s.Equal(accrualValue, order.Accrual)
+}
+
+// Мock для accrual клиента с возможностью возвращать ошибки
+type errorAccrualClient struct {
+	mu        sync.Mutex
+	err       error
+	callCount int
+	maxCalls  int
+}
+
+func (e *errorAccrualClient) GetAccrualInfo(ctx context.Context, orderNumber string) (*accrualclient.AccrualResponse, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	
+	e.callCount++
+	
+	// Если задано максимальное количество вызовов, то возвращаем ошибку до тех пор,
+	// пока не достигнем этого количества
+	if e.maxCalls > 0 && e.callCount <= e.maxCalls {
+		return nil, e.err
+	}
+	
+	// После достижения нужного количества вызовов возвращаем успешный результат
+	return &accrualclient.AccrualResponse{
+		Order:   orderNumber,
+		Status:  accrualclient.StatusProcessed,
+		Accrual: nil,
+	}, nil
+}
+
+func (e *errorAccrualClient) GetCallCount() int {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.callCount
+}
+
+// Тест для проверки механизма повторных попыток при сетевых ошибках
+func (s *OrderTestSuite) TestAddOrder_RetryOnNetworkErrors() {
+	// Создаем мок клиента, который будет возвращать ошибку 3 раза, а затем успешный результат
+	errorClient := &errorAccrualClient{
+		err:      accrualclient.ErrInternalServer,
+		maxCalls: 3,
+	}
+	
+	// Переопределяем orderService с новым моком и маленьким интервалом
+	s.orderService = service.NewOrderService(s.orderRepo, errorClient, s.logger, 10*time.Millisecond)
+	s.orderHandler = handler.NewOrderHandler(s.orderService, s.logger)
+	
+	// Перезапускаем сервер с новым хендлером
+	s.startServer()
+	
+	userID := s.users["user1"]
+	orderNumber := "12345678903"
+	
+	// Выполняем запрос
+	resp, err := s.performRequest("POST", "/orders", orderNumber, userID)
+	s.Require().NoError(err)
+	defer resp.Body.Close()
+	
+	s.Equal(http.StatusAccepted, resp.StatusCode)
+	
+	// Ждем достаточно долго, чтобы произошли все повторные попытки
+	time.Sleep(500 * time.Millisecond)
+	
+	// Проверяем, что метод GetAccrualInfo был вызван 4 раза (3 раза с ошибкой + 1 успешный)
+	s.Equal(4, errorClient.GetCallCount(), "Expected GetAccrualInfo to be called 4 times")
+	
+	// Проверяем, что статус заказа в БД стал PROCESSED
+	order, err := s.orderRepo.GetByNumber(context.Background(), orderNumber)
+	s.Require().NoError(err)
+	s.Equal(domainorder.PROCESSED, order.Status)
+}
 
 func TestOrderTestSuite(t *testing.T) {
 	suite.Run(t, new(OrderTestSuite))

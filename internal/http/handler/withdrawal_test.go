@@ -169,8 +169,6 @@ func (s *WithdrawalTestSuite) createTestWithdrawal(userID *uuid.UUID, orderNum s
 	s.Require().NoError(err)
 }
 
-// =================== Tests ===================
-
 func (s *WithdrawalTestSuite) TestGetAllByUserID_Successful() {
 	userID := s.users["user1"]
 
@@ -222,8 +220,6 @@ func (s *WithdrawalTestSuite) TestGetAllByUserID_Unauthorized() {
 
 	s.Equal(http.StatusUnauthorized, resp.StatusCode)
 }
-
-// =================== Entry Point ===================
 
 func TestWithdrawalTestSuite(t *testing.T) {
 	suite.Run(t, new(WithdrawalTestSuite))

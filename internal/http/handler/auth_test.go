@@ -76,8 +76,6 @@ func (s *AuthTestSuite) loginUser(login, password string) (*http.Response, error
 	return s.performRequest("POST", "/login", req)
 }
 
-// =================== Tests ===================
-
 func (s *AuthTestSuite) TestRegisterSuccessful() {
 	resp, err := s.registerUser("newuser", "password123")
 	s.Require().NoError(err)
@@ -198,8 +196,6 @@ func (s *AuthTestSuite) TestLoginJSONBindingError() {
 
 	s.Equal(http.StatusBadRequest, resp.StatusCode)
 }
-
-// =================== Entry Point ===================
 
 func TestAuthTestSuite(t *testing.T) {
 	suite.Run(t, new(AuthTestSuite))
