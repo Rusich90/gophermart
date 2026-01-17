@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
@@ -13,6 +14,7 @@ type Config struct {
 	AccrualSystemAddress string
 	AuthSecret           string
 	MigrationsPath       string
+	PollInterval         int // Интервал опроса внешних систем в секундах
 }
 
 func InitConfig() *Config {
@@ -23,7 +25,8 @@ func InitConfig() *Config {
 	flag.StringVar(&config.RunAddress, "a", "localhost:8080", "Адрес и порт запуска сервиса")
 	flag.StringVar(&config.DatabaseURI, "d", "", "Адрес подключения к базе данных")
 	flag.StringVar(&config.AccrualSystemAddress, "r", "", "Адрес системы расчёта начислений")
-	flag.StringVar(&config.MigrationsPath, "m", "file://migrations", "Path to migrations")
+	flag.StringVar(&config.MigrationsPath, "m", "file://migrations", "Путь до миграций")
+	flag.IntVar(&config.PollInterval, "poll-interval", 5, "Интервал опроса внешних систем в секундах")
 
 	flag.Parse()
 
@@ -45,6 +48,12 @@ func InitConfig() *Config {
 
 	if envMigrationsPath, exists := os.LookupEnv("MIGRATIONS_PATH"); exists {
 		config.MigrationsPath = envMigrationsPath
+	}
+
+	if envPollInterval, exists := os.LookupEnv("POLL_INTERVAL"); exists {
+		if interval, err := strconv.Atoi(envPollInterval); err == nil {
+			config.PollInterval = interval
+		}
 	}
 
 	return config

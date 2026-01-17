@@ -64,7 +64,7 @@ func (s *OrderTestSuite) SetupSuite() {
 
 	// Используем мок для accrual клиента
 	mockClient := &mockAccrualClient{}
-	s.orderService = service.NewOrderService(s.orderRepo, mockClient, s.logger)
+	s.orderService = service.NewOrderService(s.orderRepo, mockClient, s.logger, 5)
 	s.orderHandler = handler.NewOrderHandler(s.orderService, s.logger)
 
 	s.startServer()

@@ -59,7 +59,7 @@ func SetupServer(cfg *config.Config) (*gin.Engine, *pgxpool.Pool, error) {
 	withdrawalRepo := repository.NewWithdrawalRepo(db)
 
 	authService := service.NewAuthService(userRepo, []byte(cfg.AuthSecret))
-	orderService := service.NewOrderService(orderRepo, accrualClient, logger)
+	orderService := service.NewOrderService(orderRepo, accrualClient, logger, time.Duration(cfg.PollInterval)*time.Second)
 	withdrawalService := service.NewWithdrawalService(withdrawalRepo)
 	balanceService := service.NewBalanceService(orderRepo, withdrawalRepo)
 

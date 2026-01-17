@@ -13,13 +13,19 @@ import (
 )
 
 type OrderService struct {
-	orderRepo     domainorder.OrderRepo
-	accrualClient accrualclient.AccrualInterface
-	logger        *zap.Logger
+	orderRepo      domainorder.OrderRepo
+	accrualClient  accrualclient.AccrualInterface
+	logger         *zap.Logger
+	tickerDuration time.Duration
 }
 
-func NewOrderService(orderRepo domainorder.OrderRepo, accrualClient accrualclient.AccrualInterface, logger *zap.Logger) *OrderService {
-	return &OrderService{orderRepo: orderRepo, accrualClient: accrualClient, logger: logger}
+func NewOrderService(orderRepo domainorder.OrderRepo, accrualClient accrualclient.AccrualInterface, logger *zap.Logger, tickerDuration time.Duration) *OrderService {
+	return &OrderService{
+		orderRepo:      orderRepo,
+		accrualClient:  accrualClient,
+		logger:         logger,
+		tickerDuration: tickerDuration,
+	}
 }
 
 func (s *OrderService) GetAllByUserID(ctx context.Context, userID *uuid.UUID) ([]domainorder.Order, error) {
@@ -68,7 +74,7 @@ func (s *OrderService) AddOrder(ctx context.Context, userID *uuid.UUID, number s
 
 func (s *OrderService) processAccrualAsync(orderNumber string) {
 	ctx := context.Background()
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(s.tickerDuration)
 	defer ticker.Stop()
 
 	const maxRetries = 5
@@ -87,7 +93,7 @@ func (s *OrderService) processAccrualAsync(orderNumber string) {
 							zap.String("order_number", orderNumber))
 						return
 					}
-					time.Sleep(time.Duration(20) * time.Second)
+					time.Sleep(s.tickerDuration * 4)
 					continue
 
 				case accrualclient.IsErrInternalServer(err):
@@ -98,7 +104,7 @@ func (s *OrderService) processAccrualAsync(orderNumber string) {
 							zap.Error(err))
 						return
 					}
-					time.Sleep(time.Duration(5) * time.Second)
+					time.Sleep(s.tickerDuration)
 					continue
 
 				case accrualclient.IsErrOrderNotRegistered(err):
