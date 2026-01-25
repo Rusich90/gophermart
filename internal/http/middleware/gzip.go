@@ -26,12 +26,6 @@ func GzipMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		contentType := c.GetHeader("Content-Type")
-		if !(strings.HasPrefix(contentType, "application/json") || strings.HasPrefix(contentType, "text/html")) {
-			c.Next()
-			return
-		}
-
 		gw := &gzipResponseWriter{
 			ResponseWriter: c.Writer,
 			writer:         nil,
@@ -40,6 +34,15 @@ func GzipMiddleware() gin.HandlerFunc {
 		c.Header("Content-Encoding", "gzip")
 
 		c.Next()
+
+		contentType := c.Writer.Header().Get("Content-Type")
+		if !(strings.HasPrefix(contentType, "application/json") || strings.HasPrefix(contentType, "text/html")) {
+			c.Header("Content-Encoding", "")
+			if gw.writer != nil {
+				gw.writer.Close()
+			}
+			return
+		}
 
 		if gw.writer != nil {
 			gw.writer.Close()

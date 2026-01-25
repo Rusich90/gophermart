@@ -4,20 +4,19 @@ import (
 	"log"
 
 	"github.com/Rusich90/gophermart.git/config"
-	"github.com/Rusich90/gophermart.git/internal/http"
+	"github.com/Rusich90/gophermart.git/internal/app"
 )
 
 func main() {
 	cfg := config.InitConfig()
 
-	r, db, err := http.SetupServer(cfg)
+	application, err := app.InitializeApplication(cfg)
 	if err != nil {
-		log.Fatalf("Failed to setup server: %v", err)
+		log.Fatalf("Failed to initialize application: %v", err)
 	}
-	defer db.Close()
+	defer application.DB.Close()
 
-	log.Printf("Starting server on %s\n", cfg.RunAddress)
-	if err := r.Run(cfg.RunAddress); err != nil {
+	if err := application.Run(); err != nil {
 		log.Fatalf("Server failed to start: %v\n", err)
 	}
 }

@@ -44,6 +44,16 @@ func NewAccrualClient(baseURL string, maxConcurrentRequests, maxRetries int, log
 }
 
 func (c *AccrualClient) GetAccrualInfo(ctx context.Context, orderNumber string) (*AccrualResponse, error) {
+	// Ограничиваем количество параллельных запросов с помощью semaphore
+	select {
+	case c.semaphore <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() {
+		<-c.semaphore
+	}()
+
 	requestURL, err := url.JoinPath(c.baseURL, "api/orders", orderNumber)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build URL: %w", err)
