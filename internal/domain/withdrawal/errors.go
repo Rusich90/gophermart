@@ -1,4 +1,4 @@
-package domain
+package withdrawal
 
 import "errors"
 

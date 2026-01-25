@@ -9,12 +9,13 @@ import (
 )
 
 type Config struct {
-	RunAddress           string
-	DatabaseURI          string
-	AccrualSystemAddress string
-	AuthSecret           string
-	MigrationsPath       string
-	PollInterval         int // Интервал опроса внешних систем в секундах
+	RunAddress              string
+	DatabaseURI             string
+	AccrualSystemAddress    string
+	AuthSecret              string
+	MigrationsPath          string
+	PollInterval            int // Интервал опроса внешних систем в секундах
+	MaxConcurrentRequests   int // Максимальное количество параллельных запросов к системе начислений
 }
 
 func InitConfig() *Config {
@@ -27,6 +28,7 @@ func InitConfig() *Config {
 	flag.StringVar(&config.AccrualSystemAddress, "r", "", "Адрес системы расчёта начислений")
 	flag.StringVar(&config.MigrationsPath, "m", "file://migrations", "Путь до миграций")
 	flag.IntVar(&config.PollInterval, "poll-interval", 5, "Интервал опроса внешних систем в секундах")
+	flag.IntVar(&config.MaxConcurrentRequests, "max-concurrent-requests", 10, "Максимальное количество параллельных запросов к системе начислений")
 
 	flag.Parse()
 
@@ -53,6 +55,12 @@ func InitConfig() *Config {
 	if envPollInterval, exists := os.LookupEnv("POLL_INTERVAL"); exists {
 		if interval, err := strconv.Atoi(envPollInterval); err == nil {
 			config.PollInterval = interval
+		}
+	}
+
+	if envMaxConcurrentRequests, exists := os.LookupEnv("MAX_CONCURRENT_REQUESTS"); exists {
+		if maxRequests, err := strconv.Atoi(envMaxConcurrentRequests); err == nil {
+			config.MaxConcurrentRequests = maxRequests
 		}
 	}
 
