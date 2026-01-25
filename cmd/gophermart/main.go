@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/Rusich90/gophermart.git/config"
+	"github.com/Rusich90/gophermart.git/internal/database"
 	"github.com/Rusich90/gophermart.git/internal/http"
 )
 
@@ -14,7 +15,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to setup server: %v", err)
 	}
-	defer db.Close()
+	defer database.CloseDB(db)
 
 	log.Printf("Starting server on %s\n", cfg.RunAddress)
 	if err := r.Run(cfg.RunAddress); err != nil {
